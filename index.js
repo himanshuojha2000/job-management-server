@@ -1,36 +1,37 @@
-const express = require("express");
-const cors = require("cors");
-const sqlite3 = require("sqlite3").verbose();
+import express from "express";
+import cors from "cors";
+import db from "./db.js"; // MySQL connection
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Create SQLite DB file
-const db = new sqlite3.Database("./jobs.db", (err) => {
-  if (err) console.error(err.message);
-  else console.log("Connected to SQLite database.");
-});
-
 // Create jobs table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS jobs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT,
-  company TEXT,
-  location TEXT,
-  job_type TEXT,
-  salary_min TEXT,
-  salary_max TEXT,
-  deadline TEXT,
-  description TEXT,
-  posted_time DATETIME DEFAULT CURRENT_TIMESTAMP
-)`);
+const createTableQuery = `
+CREATE TABLE IF NOT EXISTS jobs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  company VARCHAR(255) NOT NULL,
+  location VARCHAR(255) NOT NULL,
+  job_type VARCHAR(100) NOT NULL,
+  salary_min VARCHAR(50) NOT NULL,
+  salary_max VARCHAR(50) NOT NULL,
+  deadline VARCHAR(50) NOT NULL,
+  description TEXT NOT NULL,
+  posted_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+`;
+
+db.query(createTableQuery, (err, result) => {
+  if (err) console.error("❌ Error creating table:", err);
+  else console.log("✅ Jobs table ready in MySQL.");
+});
 
 // GET all jobs
 app.get("/jobs", (req, res) => {
-  db.all("SELECT * FROM jobs ORDER BY posted_time DESC", [], (err, rows) => {
+  db.query("SELECT * FROM jobs ORDER BY posted_time DESC", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    res.json(results);
   });
 });
 
@@ -60,11 +61,13 @@ app.post("/jobs", (req, res) => {
     return res.status(400).json({ error: "All fields are required" });
   }
 
-  const query = `INSERT INTO jobs 
+  const query = `
+    INSERT INTO jobs
     (title, company, location, job_type, salary_min, salary_max, deadline, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 
-  db.run(
+  db.query(
     query,
     [
       title,
@@ -76,10 +79,10 @@ app.post("/jobs", (req, res) => {
       deadline,
       description,
     ],
-    function (err) {
+    (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json({
-        id: this.lastID,
+        id: result.insertId,
         title,
         company,
         location,
@@ -93,19 +96,20 @@ app.post("/jobs", (req, res) => {
   );
 });
 
-// FILTER jobs by type
+// FILTER jobs by job_type
 app.get("/jobs/filter", (req, res) => {
-  const { job_type } = req.query; // filter by job_type
-  if (!job_type)
-    return res
-      .status(400)
-      .json({ error: "job_type query parameter is required" });
+  const { job_type } = req.query;
+  if (!job_type) return res.status(400).json({ error: "job_type is required" });
 
-  db.all("SELECT * FROM jobs WHERE job_type = ?", [job_type], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  db.query(
+    "SELECT * FROM jobs WHERE job_type = ? ORDER BY posted_time DESC",
+    [job_type],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
 });
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
