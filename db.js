@@ -1,8 +1,8 @@
 import pkg from "pg";
-const { Pool } = pkg;
 import dotenv from "dotenv";
 
 dotenv.config();
+const { Pool } = pkg;
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -12,12 +12,14 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-db.connect((err) => {
+// Test connection
+pool.connect((err, client, release) => {
   if (err) {
-    console.error("❌ Database connection failed:", err.message);
+    console.error("❌ Database connection failed:", err.stack);
   } else {
-    console.log("✅ Connected to MySQL Database");
+    console.log("✅ Connected to PostgreSQL Database");
+    release(); // release client back to pool
   }
 });
 
-export default db;
+export default pool;
