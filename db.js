@@ -1,7 +1,7 @@
 import pkg from "pg";
 import dotenv from "dotenv";
-
 dotenv.config();
+
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -10,16 +10,12 @@ const pool = new Pool({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  ssl: { rejectUnauthorized: false }, // Railway needs this for SSL
 });
 
-// Test connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error("❌ Database connection failed:", err.stack);
-  } else {
-    console.log("✅ Connected to PostgreSQL Database");
-    release(); // release client back to pool
-  }
+pool.connect((err) => {
+  if (err) console.error("❌ Database connection failed:", err.message);
+  else console.log("✅ Connected to PostgreSQL Database");
 });
 
 export default pool;
